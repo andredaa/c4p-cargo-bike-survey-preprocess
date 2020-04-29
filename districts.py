@@ -2,8 +2,8 @@
 def get_district_for_neighborhood(neighborhood):
     neighborhood = neighborhood.strip()
     for district in districts:
-        if neighborhood.lower().strip().replace(" ", "") in \
-                map(lambda x:x.lower().strip().replace(" ", ""), districts[district]):
+        if neighborhood.lower().strip().replace(" ", "").replace("-","") in \
+                map(lambda x:x.lower().strip().replace(" ", "").replace("-",""), districts[district]):
             return neighborhood, district
 
     return neighborhood, "unbekannt"
@@ -44,6 +44,7 @@ districts = {
        "Neuwerk"
     ],
    "Altona": [
+       "Altona",
        "Altona-Altstadt",
        "Sternschanze",
        "Altona-Nord",
@@ -88,7 +89,8 @@ districts = {
        "Wohldorf-Ohlstedt",
        "Bergstedt",
        "Volksdorf",
-       "Rahlstedt"
+       "Rahlstedt",
+       "Wandsbek"
     ],
    "Harburg": [
        "Harburg",
