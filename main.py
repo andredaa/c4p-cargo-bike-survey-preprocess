@@ -1,7 +1,8 @@
 from openpyxl import Workbook, load_workbook
+from openpyxl.utils.cell import column_index_from_string
 from questions import orignal_column_headers, question_codes
-from groupings import find_identifiers_for_group_name, groupings, group_identifiers, \
-    find_relevant_questions_for_group_name
+from groupings import find_identifiers_for_group_name, groupings, find_relevant_questions_for_group_name
+from districts import get_district_for_neighborhood, get_neighborhood_for_zipcode
 
 # superfluous cols coming out of limesurvey
 columns_to_delete = [
@@ -14,7 +15,7 @@ columns_to_delete = [
 def get_input_workbook():
     return load_workbook(filename="results-survey.xlsx")
 
-
+# TODO
 def check_sheet_format():
     for column in processed_sheet.iter_cols(min_col=1, min_row=1, max_row=1):
         for cell in column:
@@ -26,6 +27,10 @@ def check_sheet_format():
                 print("column id:", cell.column)
                 print("column header", cell.value)
                 print("expected header", orignal_column_headers[cell.column])
+
+                #raise ValueError("column order does not fit expectations")
+
+    #return True
 
 
 # many questions need to be reformated as they contain introduction texts, ...
@@ -72,6 +77,8 @@ def fix_empty_cells():
 # some questions are asked multiple times due to randomization groups.
 # this function groups all results as a single question
 def group_duplicate_questions(resulting_columns, duplicate_question_columns):
+    check_sheet_format()
+
     # get the column headers for the resulting columns
     summary_columns_names = orignal_column_headers[resulting_columns[0]: (resulting_columns[1] + 1)]
     columns_to_delete.append(duplicate_question_columns)
@@ -86,6 +93,26 @@ def group_duplicate_questions(resulting_columns, duplicate_question_columns):
                 resulting_columns[0])  # TODO: writing to the right cell?
                 # copy value to summary columns
                 processed_sheet.cell(row=cell.row, column=summary_column).value = cell.value
+
+# insert new header rows with question_ids
+def add_question_and_subquestion_ids_to_cols():
+    # add 2 rows for question_id and subquestion_id
+    processed_sheet.insert_rows(idx=1, amount=2)
+    for cell in processed_sheet[3]:
+        header = cell.value
+        for entry in question_codes:
+            if entry[2] == header:
+                # set question code
+                processed_sheet.cell(row=1, column=cell.column).value = entry[0]
+                # set subquestion code or None
+                processed_sheet.cell(row=2, column=cell.column).value = entry[1]
+                break
+        else:
+            # Didn't find anything..
+            error_col = processed_sheet[cell.column_letter]
+
+            print("could not find question code for ", header, cell.column_letter, processed_sheet[cell.column_letter])
+            #exit()
 
 
 def export_question_times_to_separate_sheet():
@@ -112,25 +139,6 @@ def export_question_times_to_separate_sheet():
 
     # set processed sheet back as active sheet
     input_wb.active = processed_sheet
-
-
-# insert new header rows with question_ids
-def add_question_and_subquestion_ids_to_cols():
-    # add 2 rows for question_id and subquestion_id
-    processed_sheet.insert_rows(idx=1, amount=2)
-    for cell in processed_sheet[3]:
-        header = cell.value
-        for entry in question_codes:
-            if entry[2] == header:
-                # set question code
-                processed_sheet.cell(row=1, column=cell.column).value = entry[0]
-                # set subquestion code or None
-                processed_sheet.cell(row=2, column=cell.column).value = entry[1]
-                break
-        else:
-            # Didn't find anything..
-            print("could not find question code for ", header)
-            exit()
 
 
 # create a new worksheet that lists an overview of all questions and subquestions
@@ -168,6 +176,34 @@ def export_question_ids_to_separate_sheet():
 
     # set processed sheet back as active sheet
     input_wb.active = processed_sheet
+
+
+def add_disctrict_column():
+    for cell in processed_sheet[1]:
+        if cell.value == "In welchem Stadtteil Hamburgs wohnen Sie?":
+            col_id = cell.column
+            col_letter = cell.column_letter
+
+            # insert new column for Bezirk
+            processed_sheet.insert_cols(col_id + 1)
+            processed_sheet.cell(1, col_id + 1).value = "Bezirk"
+
+            for col_cell in processed_sheet[col_letter]:
+                # skip header row
+                if col_cell.row == 1:
+                    continue
+
+                neighborhood_name = col_cell.value
+                if neighborhood_name is not None:
+                    # get a neighboorhood name for zipcodes
+                    if type(neighborhood_name) == int or neighborhood_name.isnumeric():
+                        col_cell.value = get_neighborhood_for_zipcode(col_cell.value)
+                        neighborhood_name = col_cell.value
+
+                    neighborhood_name_fixed, district = get_district_for_neighborhood(neighborhood_name)
+                    processed_sheet.cell(col_cell.row, col_id).value = neighborhood_name_fixed
+                    processed_sheet.cell(col_cell.row, col_id + 1).value = district
+
 
 
 # create a seperate worksheet for each subgroup of survey-submissions
@@ -287,8 +323,11 @@ if __name__ == '__main__':
 
     export_question_ids_to_separate_sheet()
 
-    # delete all columns that became redundant during summaries
     bulk_delete_columns(processed_sheet, columns_to_delete)
+    # delete all columns that became redundant during summaries
+
+    # add columnn for district
+    add_disctrict_column()
 
     # insert new header rows with question_ids
     add_question_and_subquestion_ids_to_cols()
@@ -297,5 +336,5 @@ if __name__ == '__main__':
 
     # TODO Test if all cells are filled in that should be filled
 
-    input_wb.save('cargo_bike_survey_answers.xlsx')
+    input_wb.save('cargo_bike_survey_preprocessed_answers.xlsx')
     print("finished!")
