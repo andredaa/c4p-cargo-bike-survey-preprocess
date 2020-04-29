@@ -269,13 +269,13 @@ if __name__ == '__main__':
     group_duplicate_questions([96, 100], [101, 105])
 
     # summarize criteria (non-user)
-    group_duplicate_questions([96, 100], [171, 174])
+    group_duplicate_questions([96, 100], [170, 174])
 
     # summarize imagined challenges [non-user]
     group_duplicate_questions([118, 127], [128, 167])
 
-    # summarize hurdles in purchase
-    group_duplicate_questions([23, 24], [115, 116])
+    # summarize willingness to purchase and hurdles in purchase
+    group_duplicate_questions([22, 24], [114, 116])
 
     # summarize "Kennen Sie den lastenradstellplatz"
     group_duplicate_questions([95, 95], [169, 169])
